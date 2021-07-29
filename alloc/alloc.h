@@ -16,12 +16,24 @@ struct TBaseAlloc {
     void DeAlloc(void* p) {
         std::free(p);
     }
+    void Destroy() {
+    }
 };
 
 template <ui32 Size, class TAlloc = TBaseAlloc>
 class TFixedAlloc {
 public:
     TFixedAlloc() = default;
+    TFixedAlloc(const TFixedAlloc&) = delete;
+    TFixedAlloc& operator=(const TFixedAlloc&) = delete;
+
+    TFixedAlloc(TFixedAlloc&& other) noexcept {
+        Swap(other);
+    }
+    TFixedAlloc& operator=(TFixedAlloc&& other) noexcept {
+        Swap(other);
+        return *this;
+    }
 
     void Initialize(ui32 c) {
         assert(!Chuck_);
@@ -61,6 +73,18 @@ public:
     void Destroy() noexcept {
         TAlloc().DeAlloc(Chuck_);
         Chuck_ = nullptr;
+    }
+
+    void Swap(TFixedAlloc& other) noexcept {
+        std::swap(Chuck_, other.Chuck_);
+        std::swap(Head_, other.Head_);
+        std::swap(Free_, other.Free_);
+        std::swap(Inited_, other.Inited_);
+        std::swap(Max_, other.Max_);
+    }
+
+    ~TFixedAlloc() {
+        Destroy();
     }
 
 private:

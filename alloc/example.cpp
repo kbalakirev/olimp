@@ -90,7 +90,8 @@ void Example() {
        std::cout << key.Key << "\n";
     });
 
-    Free<TKey>(root, alloc);
+    auto other = std::move(alloc);
+    Free<TKey>(root, other);
 }
 
 int main() {

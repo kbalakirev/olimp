@@ -24,8 +24,6 @@ template <ui32 Size, class TAlloc = TBaseAlloc>
 class TFixedAlloc {
 public:
     TFixedAlloc() = default;
-    TFixedAlloc(const TFixedAlloc&) = delete;
-    TFixedAlloc& operator=(const TFixedAlloc&) = delete;
 
     TFixedAlloc(TFixedAlloc&& other) noexcept {
         Swap(other);
@@ -119,7 +117,7 @@ public:
     }
 
     template <class... TArgs>
-    TObj* Alloc(TArgs... args) {
+    TObj* Alloc(TArgs&&... args) {
         void* obj = Alloc_.Alloc();
         return new (obj) TObj(std::forward<TArgs>(args)...);
     }

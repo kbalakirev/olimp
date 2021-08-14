@@ -4,3 +4,4 @@ project(ROOT)
 
 add_subdirectory(alloc)
 add_subdirectory(segment_tree)
+add_subdirectory(sparse_table)

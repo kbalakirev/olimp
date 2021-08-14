@@ -59,7 +59,7 @@ void Free(TIntrusiveNode* root, TDeleter& deleter) {
     }
     Free<T>(static_cast<T*>(root->Left), deleter);
     Free<T>(static_cast<T*>(root->Right), deleter);
-    deleter.DeAlloc(root);
+    deleter.Deallocate(root);
 }
 
 struct TKey: public TIntrusiveNode {
@@ -72,15 +72,15 @@ struct TKey: public TIntrusiveNode {
 };
 
 void Example() {
-    constexpr ui32 N = 10;
+    constexpr ui64 N = 10;
 
-    NAlloc::TObjAlloc<TKey> alloc;
+    NAlloc::TFixedAllocator<sizeof(TKey)> alloc;
     alloc.Initialize(N);
 
     TIntrusiveNode* root = nullptr;
 
     for (ui64 i = 0; i < N; ++i) {
-        auto* node = alloc.Alloc(N - i);
+        auto* node = alloc.Construct<TKey>(N - i);
         root = Add(root, node, [](const auto& lhs, const auto& rhs) {
             return lhs.Key < rhs.Key;
         });

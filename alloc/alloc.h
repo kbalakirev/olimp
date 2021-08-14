@@ -9,40 +9,29 @@
 
 namespace NAlloc {
 
-struct TBaseAlloc {
-    void* Alloc(ui64 c) {
-        return std::malloc(c);
-    }
-    void DeAlloc(void* p) {
-        std::free(p);
-    }
-    void Destroy() {
-    }
-};
-
-template <ui32 Size, class TAlloc = TBaseAlloc>
-class TFixedAlloc {
+template <ui32 Size>
+class TFixedAllocator {
 public:
-    TFixedAlloc() = default;
+    TFixedAllocator() = default;
 
-    TFixedAlloc(TFixedAlloc&& other) noexcept {
+    TFixedAllocator(TFixedAllocator&& other) noexcept {
         Swap(other);
     }
-    TFixedAlloc& operator=(TFixedAlloc&& other) noexcept {
+    TFixedAllocator& operator=(TFixedAllocator&& other) noexcept {
         Swap(other);
         return *this;
     }
 
     void Initialize(ui32 c) {
         assert(!Chuck_);
-        Chuck_ = TAlloc().Alloc(c * Block);
+        Chuck_ = std::malloc(c * Block);
         Free_ = c;
         Max_ = c;
     }
 
-    void* Alloc(ui64 = 0) {
-        if (Free_ == 0) {
-            return TAlloc().Alloc(Size);
+    void* Allocate(ui64 size) {
+        if (Free_ == 0 || size != Size) {
+            return std::malloc(size);
         }
         if (Inited_ < Max_) {
             *(ui32*) Ptr(Inited_) = Inited_ + 1;
@@ -54,26 +43,37 @@ public:
         return block;
     }
 
-    void DeAlloc(void* ptr) {
-        if (!ptr) {
+    template <class T, class... TArgs>
+    T* Construct(TArgs&&... args) {
+        void* p = Allocate(sizeof(T));
+        try {
+            return new(p) T(std::forward<TArgs>(args)...);
+        } catch (...) {
+            Deallocate(p);
+            throw;
+        }
+    }
+
+    void Deallocate(void* p) {
+        if (!p) {
             return;
         }
-        if (ptr < Chuck_ || ptr >= Ptr(Max_)) {
-            TAlloc().DeAlloc(ptr);
+        if (p < Chuck_ || p >= Ptr(Max_)) {
+            std::free(p);
             return;
         }
-        assert(((char*) ptr - (char*) Chuck_) % Block == 0);
-        *(ui32*) ptr = Head_;
-        Head_ = Idx(ptr);
+        assert(((char*) p - (char*) Chuck_) % Block == 0);
+        *(ui32*) p = Head_;
+        Head_ = Idx(p);
         ++Free_;
     }
 
     void Destroy() noexcept {
-        TAlloc().DeAlloc(Chuck_);
+        std::free(Chuck_);
         Chuck_ = nullptr;
     }
 
-    void Swap(TFixedAlloc& other) noexcept {
+    void Swap(TFixedAllocator& other) noexcept {
         std::swap(Chuck_, other.Chuck_);
         std::swap(Head_, other.Head_);
         std::swap(Free_, other.Free_);
@@ -81,7 +81,7 @@ public:
         std::swap(Max_, other.Max_);
     }
 
-    ~TFixedAlloc() {
+    ~TFixedAllocator() {
         Destroy();
     }
 
@@ -107,31 +107,6 @@ private:
     ui32 Free_ = 0;
     ui32 Inited_ = 0;
     ui32 Max_ = 0;
-};
-
-template <class TObj, class TAlloc = TBaseAlloc>
-class TObjAlloc {
-public:
-    void Initialize(ui32 c) {
-        Alloc_.Initialize(c);
-    }
-
-    template <class... TArgs>
-    TObj* Alloc(TArgs&&... args) {
-        void* obj = Alloc_.Alloc();
-        return new (obj) TObj(std::forward<TArgs>(args)...);
-    }
-
-    void DeAlloc(void* ptr) {
-        Alloc_.DeAlloc(ptr);
-    }
-
-    void Destroy() {
-        Alloc_.Destroy();
-    }
-
-private:
-    TFixedAlloc<sizeof(TObj), TAlloc> Alloc_;
 };
 
 }
